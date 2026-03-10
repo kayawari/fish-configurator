@@ -37,10 +37,9 @@ func TestProperty_EntryAdditionAccuracy(t *testing.T) {
 
 		// テスト用のConfigManagerを作成
 		testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-		manager := &DefaultConfigManager{
-			filePath: testFilePath,
-			parser:   NewParser(),
-		}
+		manager := NewConfigManager(
+			WithFilePath(testFilePath),
+		).(*DefaultConfigManager)
 
 		// エントリを追加
 		err = manager.AddEntry(entryType, name, definition)
@@ -96,7 +95,7 @@ func normalizeName(s string) string {
 	if len(s) == 0 {
 		return "test"
 	}
-	
+
 	// 英数字とアンダースコアのみを保持
 	var builder strings.Builder
 	for _, r := range s {
@@ -104,17 +103,17 @@ func normalizeName(s string) string {
 			builder.WriteRune(r)
 		}
 	}
-	
+
 	result := builder.String()
 	if result == "" {
 		return "test"
 	}
-	
+
 	// 最大長を制限
 	if len(result) > 20 {
 		result = result[:20]
 	}
-	
+
 	return result
 }
 
@@ -123,24 +122,24 @@ func normalizeDefinition(s string) string {
 	if len(s) == 0 {
 		return "echo test"
 	}
-	
+
 	// シングルクォートをエスケープ（fish shellの構文に合わせる）
 	s = strings.ReplaceAll(s, "'", "\\'")
-	
+
 	// 改行を削除
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
-	
+
 	// 最大長を制限
 	if len(s) > 50 {
 		s = s[:50]
 	}
-	
+
 	// 空白のみの場合はデフォルト値を返す
 	if strings.TrimSpace(s) == "" {
 		return "echo test"
 	}
-	
+
 	return s
 }
 
@@ -176,10 +175,9 @@ func TestProperty_ExistingEntryInvariance(t *testing.T) {
 
 			// テスト用のConfigManagerを作成
 			testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-			manager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			manager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			// 既存のエントリを追加
 			existingEntries := make([]Entry, count)
@@ -267,10 +265,9 @@ func TestProperty_ExistingEntryInvariance(t *testing.T) {
 
 			// テスト用のConfigManagerを作成
 			testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-			manager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			manager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			// エントリを追加
 			allEntries := make([]Entry, count)
@@ -389,16 +386,15 @@ func TestProperty_EntryRemovalAccuracy(t *testing.T) {
 
 		// テスト用のConfigManagerを作成
 		testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-		manager := &DefaultConfigManager{
-			filePath: testFilePath,
-			parser:   NewParser(),
-		}
+		manager := NewConfigManager(
+			WithFilePath(testFilePath),
+		).(*DefaultConfigManager)
 
 		// エントリを追加
 		allEntries := make([]Entry, count)
 		for i := 0; i < count; i++ {
 			var eType, eName, eDef string
-			
+
 			// 削除対象のインデックスには指定された値を使用
 			if i == removeIdx {
 				eType = entryType
@@ -446,8 +442,8 @@ func TestProperty_EntryRemovalAccuracy(t *testing.T) {
 
 		// 削除したエントリが存在しないことを確認
 		for _, entry := range config.Entries {
-			if entry.Type == toRemove.Type && 
-				entry.Name == toRemove.Name && 
+			if entry.Type == toRemove.Type &&
+				entry.Name == toRemove.Name &&
 				entry.Definition == toRemove.Definition {
 				t.Logf("Removed entry still exists: type=%s, name=%s, definition=%s",
 					toRemove.Type, toRemove.Name, toRemove.Definition)
@@ -497,10 +493,9 @@ func TestProperty_FormatAccuracy(t *testing.T) {
 
 		// テスト用のConfigManagerを作成
 		testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-		manager := &DefaultConfigManager{
-			filePath: testFilePath,
-			parser:   NewParser(),
-		}
+		manager := NewConfigManager(
+			WithFilePath(testFilePath),
+		).(*DefaultConfigManager)
 
 		// エントリを追加
 		err = manager.AddEntry(entryType, name, definition)
@@ -600,10 +595,9 @@ func TestProperty_FilePersistenceAccuracy(t *testing.T) {
 
 			// テスト用のConfigManagerを作成
 			testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-			manager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			manager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			// エントリを追加
 			err = manager.AddEntry(entryType, name, definition)
@@ -633,10 +627,9 @@ func TestProperty_FilePersistenceAccuracy(t *testing.T) {
 
 			// 新しいConfigManagerインスタンスを作成して、ファイルから読み込む
 			// （これにより、メモリ上のキャッシュではなく、実際にファイルに書き込まれたことを確認）
-			newManager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			newManager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			config, err := newManager.Load()
 			if err != nil {
@@ -690,10 +683,9 @@ func TestProperty_FilePersistenceAccuracy(t *testing.T) {
 
 			// テスト用のConfigManagerを作成
 			testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-			manager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			manager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			// エントリを追加
 			allEntries := make([]Entry, count)
@@ -745,10 +737,9 @@ func TestProperty_FilePersistenceAccuracy(t *testing.T) {
 			_ = content
 
 			// 新しいConfigManagerインスタンスを作成して、ファイルから読み込む
-			newManager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			newManager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			config, err := newManager.Load()
 			if err != nil {
@@ -803,10 +794,9 @@ func TestProperty_FilePersistenceAccuracy(t *testing.T) {
 
 			// テスト用のConfigManagerを作成
 			testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-			manager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			manager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			// 複数の操作を実行
 			for i := 0; i < count; i++ {
@@ -831,10 +821,9 @@ func TestProperty_FilePersistenceAccuracy(t *testing.T) {
 				}
 
 				// ファイルが読み込み可能であることを確認
-				newManager := &DefaultConfigManager{
-					filePath: testFilePath,
-					parser:   NewParser(),
-				}
+				newManager := NewConfigManager(
+					WithFilePath(testFilePath),
+				).(*DefaultConfigManager)
 
 				config, err := newManager.Load()
 				if err != nil {
@@ -865,7 +854,6 @@ func TestProperty_FilePersistenceAccuracy(t *testing.T) {
 	})
 }
 
-
 // TestProperty_FileSaveVerification tests Property 11: ファイル保存の検証
 // **Validates: Requirements 9.3**
 //
@@ -895,10 +883,9 @@ func TestProperty_FileSaveVerification(t *testing.T) {
 
 			// テスト用のConfigManagerを作成
 			testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-			manager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			manager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			// エントリを追加
 			err = manager.AddEntry(entryType, name, definition)
@@ -969,10 +956,9 @@ func TestProperty_FileSaveVerification(t *testing.T) {
 
 			// テスト用のConfigManagerを作成
 			testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-			manager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			manager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			// エントリを追加
 			allEntries := make([]Entry, count)
@@ -1064,10 +1050,9 @@ func TestProperty_FileSaveVerification(t *testing.T) {
 
 			// テスト用のConfigManagerを作成
 			testFilePath := filepath.Join(tempDir, "fish-configurator.fish")
-			manager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			manager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			// Configを作成
 			config := &Config{
@@ -1122,10 +1107,9 @@ func TestProperty_FileSaveVerification(t *testing.T) {
 			_ = content
 
 			// 5. ファイルが解析可能であることを確認
-			newManager := &DefaultConfigManager{
-				filePath: testFilePath,
-				parser:   NewParser(),
-			}
+			newManager := NewConfigManager(
+				WithFilePath(testFilePath),
+			).(*DefaultConfigManager)
 
 			loadedConfig, err := newManager.Load()
 			if err != nil {

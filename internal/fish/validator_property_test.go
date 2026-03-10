@@ -62,13 +62,13 @@ func TestProperty_SyntaxValidationAccuracy(t *testing.T) {
 			return false
 		}
 
-		// fish -n <file> でシンタックスチェックを実行
-		cmd := exec.Command("fish", "-n", testFilePath)
-		output, err := cmd.CombinedOutput()
+		// ValidatorのValidateFileメソッドを使用してシンタックスチェック
+		validator := NewFishValidator()
+		err = validator.ValidateFile(testFilePath)
 
 		if err != nil {
-			t.Logf("Syntax validation failed for entry (type=%s, name=%s, definition=%s): %s",
-				entryType, name, definition, string(output))
+			t.Logf("Syntax validation failed for entry (type=%s, name=%s, definition=%s): %v",
+				entryType, name, definition, err)
 			return false
 		}
 

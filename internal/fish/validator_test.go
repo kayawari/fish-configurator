@@ -7,67 +7,85 @@ import (
 	"testing"
 )
 
-// TestValidateSyntax_ValidAlias は有効なaliasのシンタックスチェックをテストする
-func TestValidateSyntax_ValidAlias(t *testing.T) {
+// TestValidateFile_ValidAlias は有効なaliasのシンタックスチェックをテストする
+func TestValidateFile_ValidAlias(t *testing.T) {
 	validator := NewFishValidator()
 	
-	// 有効なalias定義
-	err := validator.ValidateSyntax("alias", "ll", "ls -la")
+	// テスト用の一時ファイルを作成
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.fish")
+	
+	// 有効なalias定義を書き込む
+	content := "alias ll 'ls -la'\n"
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+	
+	// シンタックスチェックを実行
+	err := validator.ValidateFile(testFile)
 	if err != nil {
 		t.Errorf("Expected no error for valid alias, got %v", err)
 	}
 }
 
-// TestValidateSyntax_ValidAbbr は有効なabbrのシンタックスチェックをテストする
-func TestValidateSyntax_ValidAbbr(t *testing.T) {
+// TestValidateFile_ValidAbbr は有効なabbrのシンタックスチェックをテストする
+func TestValidateFile_ValidAbbr(t *testing.T) {
 	validator := NewFishValidator()
 	
-	// 有効なabbr定義
-	err := validator.ValidateSyntax("abbr", "gco", "git checkout")
+	// テスト用の一時ファイルを作成
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.fish")
+	
+	// 有効なabbr定義を書き込む
+	content := "abbr -a gco 'git checkout'\n"
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+	
+	// シンタックスチェックを実行
+	err := validator.ValidateFile(testFile)
 	if err != nil {
 		t.Errorf("Expected no error for valid abbr, got %v", err)
 	}
 }
 
-// TestValidateSyntax_ComplexCommand は複雑なコマンドのシンタックスチェックをテストする
-func TestValidateSyntax_ComplexCommand(t *testing.T) {
+// TestValidateFile_ComplexCommand は複雑なコマンドのシンタックスチェックをテストする
+func TestValidateFile_ComplexCommand(t *testing.T) {
 	validator := NewFishValidator()
 	
 	testCases := []struct {
-		name       string
-		entryType  string
-		entryName  string
-		definition string
+		name    string
+		content string
 	}{
 		{
-			name:       "pipe command",
-			entryType:  "alias",
-			entryName:  "count",
-			definition: "ls -la | wc -l",
+			name:    "pipe command",
+			content: "alias count 'ls -la | wc -l'\n",
 		},
 		{
-			name:       "command with options",
-			entryType:  "alias",
-			entryName:  "grep_color",
-			definition: "grep --color=auto",
+			name:    "command with options",
+			content: "alias grep_color 'grep --color=auto'\n",
 		},
 		{
-			name:       "command with redirection",
-			entryType:  "abbr",
-			entryName:  "save",
-			definition: "echo test > output.txt",
+			name:    "command with redirection",
+			content: "abbr -a save 'echo test > output.txt'\n",
 		},
 		{
-			name:       "command with semicolon",
-			entryType:  "alias",
-			entryName:  "multi",
-			definition: "echo first; echo second",
+			name:    "command with semicolon",
+			content: "alias multi 'echo first; echo second'\n",
 		},
 	}
 	
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validator.ValidateSyntax(tc.entryType, tc.entryName, tc.definition)
+			// テスト用の一時ファイルを作成
+			tempDir := t.TempDir()
+			testFile := filepath.Join(tempDir, "test.fish")
+			
+			if err := os.WriteFile(testFile, []byte(tc.content), 0644); err != nil {
+				t.Fatalf("Failed to write test file: %v", err)
+			}
+			
+			err := validator.ValidateFile(testFile)
 			if err != nil {
 				t.Errorf("Expected no error for %s, got %v", tc.name, err)
 			}
@@ -75,33 +93,35 @@ func TestValidateSyntax_ComplexCommand(t *testing.T) {
 	}
 }
 
-// TestValidateSyntax_InvalidSyntax は無効な構文のエラーハンドリングをテストする
-func TestValidateSyntax_InvalidSyntax(t *testing.T) {
+// TestValidateFile_InvalidSyntax は無効な構文のエラーハンドリングをテストする
+func TestValidateFile_InvalidSyntax(t *testing.T) {
 	validator := NewFishValidator()
 	
 	testCases := []struct {
-		name       string
-		entryType  string
-		entryName  string
-		definition string
+		name    string
+		content string
 	}{
 		{
-			name:       "unclosed single quote",
-			entryType:  "alias",
-			entryName:  "bad",
-			definition: "echo 'unclosed",
+			name:    "unclosed single quote",
+			content: "alias bad 'echo 'unclosed'\n",
 		},
 		{
-			name:       "unbalanced quotes",
-			entryType:  "abbr",
-			entryName:  "bad_balance",
-			definition: "echo 'test\" mixed",
+			name:    "unbalanced quotes",
+			content: "abbr -a bad_balance 'echo 'test\" mixed'\n",
 		},
 	}
 	
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validator.ValidateSyntax(tc.entryType, tc.entryName, tc.definition)
+			// テスト用の一時ファイルを作成
+			tempDir := t.TempDir()
+			testFile := filepath.Join(tempDir, "test.fish")
+			
+			if err := os.WriteFile(testFile, []byte(tc.content), 0644); err != nil {
+				t.Fatalf("Failed to write test file: %v", err)
+			}
+			
+			err := validator.ValidateFile(testFile)
 			if err == nil {
 				t.Errorf("Expected error for %s, got nil", tc.name)
 				return
@@ -115,140 +135,92 @@ func TestValidateSyntax_InvalidSyntax(t *testing.T) {
 	}
 }
 
-// TestValidateSyntax_UnknownEntryType は未知のエントリタイプのエラーハンドリングをテストする
-func TestValidateSyntax_UnknownEntryType(t *testing.T) {
+// TestValidateFile_MultipleEntries は複数のエントリを含むファイルのシンタックスチェックをテストする
+func TestValidateFile_MultipleEntries(t *testing.T) {
 	validator := NewFishValidator()
 	
-	// 未知のエントリタイプ
-	err := validator.ValidateSyntax("unknown", "test", "echo test")
-	if err == nil {
-		t.Error("Expected error for unknown entry type, got nil")
+	// テスト用の一時ファイルを作成
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.fish")
+	
+	// 複数のエントリを含む内容
+	content := `# Aliases
+alias ll 'ls -la'
+alias gs 'git status'
+
+# Abbreviations
+abbr -a gco 'git checkout'
+abbr -a gp 'git push'
+`
+	
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
 	}
 	
-	// エラーメッセージに "unknown entry type" が含まれることを確認
-	if !strings.Contains(err.Error(), "unknown entry type") {
-		t.Errorf("Expected error message to contain 'unknown entry type', got %q", err.Error())
+	// シンタックスチェックを実行
+	err := validator.ValidateFile(testFile)
+	if err != nil {
+		t.Errorf("Expected no error for multiple entries, got %v", err)
 	}
 }
 
-// TestValidateSyntax_TempFileCleanup は一時ファイルの削除を確認するテストする
-func TestValidateSyntax_TempFileCleanup(t *testing.T) {
+// TestValidateFile_EmptyFile は空のファイルのシンタックスチェックをテストする
+func TestValidateFile_EmptyFile(t *testing.T) {
 	validator := NewFishValidator()
 	
-	// 一時ディレクトリのパスを取得
-	tempDir := os.TempDir()
+	// テスト用の一時ファイルを作成
+	tempDir := t.TempDir()
+	testFile := filepath.Join(tempDir, "test.fish")
 	
-	// 実行前の一時ファイル数を取得
-	beforeFiles, err := filepath.Glob(filepath.Join(tempDir, "fish-configurator-*.fish"))
-	if err != nil {
-		t.Fatalf("Failed to list temp files: %v", err)
-	}
-	beforeCount := len(beforeFiles)
-	
-	// ValidateSyntax を実行（成功ケース）
-	err = validator.ValidateSyntax("alias", "test", "echo test")
-	if err != nil {
-		t.Fatalf("ValidateSyntax failed: %v", err)
+	// 空のファイルを作成
+	if err := os.WriteFile(testFile, []byte(""), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
 	}
 	
-	// 実行後の一時ファイル数を取得
-	afterFiles, err := filepath.Glob(filepath.Join(tempDir, "fish-configurator-*.fish"))
+	// シンタックスチェックを実行（空のファイルは有効）
+	err := validator.ValidateFile(testFile)
 	if err != nil {
-		t.Fatalf("Failed to list temp files: %v", err)
-	}
-	afterCount := len(afterFiles)
-	
-	// 一時ファイルが削除されていることを確認
-	if afterCount != beforeCount {
-		t.Errorf("Expected temp file to be cleaned up. Before: %d, After: %d", beforeCount, afterCount)
-		t.Logf("Remaining files: %v", afterFiles)
+		t.Errorf("Expected no error for empty file, got %v", err)
 	}
 }
 
-// TestValidateSyntax_TempFileCleanupOnError はエラー時の一時ファイル削除を確認するテストする
-func TestValidateSyntax_TempFileCleanupOnError(t *testing.T) {
-	validator := NewFishValidator()
-	
-	// 一時ディレクトリのパスを取得
-	tempDir := os.TempDir()
-	
-	// 実行前の一時ファイル数を取得
-	beforeFiles, err := filepath.Glob(filepath.Join(tempDir, "fish-configurator-*.fish"))
-	if err != nil {
-		t.Fatalf("Failed to list temp files: %v", err)
-	}
-	beforeCount := len(beforeFiles)
-	
-	// ValidateSyntax を実行（エラーケース）
-	err = validator.ValidateSyntax("alias", "bad", "echo 'unclosed")
-	if err == nil {
-		t.Fatal("Expected error for invalid syntax, got nil")
-	}
-	
-	// 実行後の一時ファイル数を取得
-	afterFiles, err := filepath.Glob(filepath.Join(tempDir, "fish-configurator-*.fish"))
-	if err != nil {
-		t.Fatalf("Failed to list temp files: %v", err)
-	}
-	afterCount := len(afterFiles)
-	
-	// エラー時でも一時ファイルが削除されていることを確認
-	if afterCount != beforeCount {
-		t.Errorf("Expected temp file to be cleaned up even on error. Before: %d, After: %d", beforeCount, afterCount)
-		t.Logf("Remaining files: %v", afterFiles)
-	}
-}
-
-// TestValidateSyntax_EmptyDefinition は空の定義のシンタックスチェックをテストする
-func TestValidateSyntax_EmptyDefinition(t *testing.T) {
-	validator := NewFishValidator()
-	
-	// 空の定義（fishのシンタックスチェックは通るはず）
-	err := validator.ValidateSyntax("alias", "empty", "")
-	if err != nil {
-		t.Errorf("Expected no error for empty definition, got %v", err)
-	}
-}
-
-// TestValidateSyntax_SpecialCharacters は特殊文字を含む定義のシンタックスチェックをテストする
-func TestValidateSyntax_SpecialCharacters(t *testing.T) {
+// TestValidateFile_SpecialCharacters は特殊文字を含む定義のシンタックスチェックをテストする
+func TestValidateFile_SpecialCharacters(t *testing.T) {
 	validator := NewFishValidator()
 	
 	testCases := []struct {
-		name       string
-		entryType  string
-		entryName  string
-		definition string
+		name    string
+		content string
 	}{
 		{
-			name:       "dollar sign",
-			entryType:  "alias",
-			entryName:  "var",
-			definition: "echo $HOME",
+			name:    "dollar sign",
+			content: "alias var 'echo $HOME'\n",
 		},
 		{
-			name:       "asterisk",
-			entryType:  "alias",
-			entryName:  "all",
-			definition: "ls *.txt",
+			name:    "asterisk",
+			content: "alias all 'ls *.txt'\n",
 		},
 		{
-			name:       "question mark",
-			entryType:  "alias",
-			entryName:  "single",
-			definition: "ls ?.txt",
+			name:    "question mark",
+			content: "alias single 'ls ?.txt'\n",
 		},
 		{
-			name:       "brackets",
-			entryType:  "abbr",
-			entryName:  "range",
-			definition: "ls [a-z].txt",
+			name:    "brackets",
+			content: "abbr -a range 'ls [a-z].txt'\n",
 		},
 	}
 	
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validator.ValidateSyntax(tc.entryType, tc.entryName, tc.definition)
+			// テスト用の一時ファイルを作成
+			tempDir := t.TempDir()
+			testFile := filepath.Join(tempDir, "test.fish")
+			
+			if err := os.WriteFile(testFile, []byte(tc.content), 0644); err != nil {
+				t.Fatalf("Failed to write test file: %v", err)
+			}
+			
+			err := validator.ValidateFile(testFile)
 			if err != nil {
 				t.Errorf("Expected no error for %s, got %v", tc.name, err)
 			}
@@ -265,15 +237,15 @@ func TestNewFishValidator(t *testing.T) {
 	}
 }
 
-// TestValidateSyntax_MultipleValidations は複数回の検証をテストする
-func TestValidateSyntax_MultipleValidations(t *testing.T) {
+// TestValidateFile_NonExistentFile は存在しないファイルのエラーハンドリングをテストする
+func TestValidateFile_NonExistentFile(t *testing.T) {
 	validator := NewFishValidator()
 	
-	// 複数回の検証を実行
-	for i := 0; i < 5; i++ {
-		err := validator.ValidateSyntax("alias", "test", "echo test")
-		if err != nil {
-			t.Errorf("Validation %d failed: %v", i+1, err)
-		}
+	// 存在しないファイルパス
+	nonExistentFile := "/tmp/non-existent-file-12345.fish"
+	
+	err := validator.ValidateFile(nonExistentFile)
+	if err == nil {
+		t.Error("Expected error for non-existent file, got nil")
 	}
 }

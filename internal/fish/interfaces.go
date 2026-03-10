@@ -6,7 +6,3 @@ type Executor interface {
 	CheckAvailability() error
 }
 
-// Validator は fish shell のシンタックスチェックを実行する
-type Validator interface {
-	ValidateSyntax(entryType, name, definition string) error
-}

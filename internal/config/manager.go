@@ -7,14 +7,44 @@ import (
 	"strings"
 )
 
+// Validator は fish shell のシンタックスチェックを実行する
+type Validator interface {
+	ValidateFile(filePath string) error
+}
+
 // DefaultConfigManager は ConfigManager インターフェースのデフォルト実装です
 type DefaultConfigManager struct {
-	filePath string
-	parser   Parser
+	filePath  string
+	parser    Parser
+	validator Validator
+}
+
+// Option は ConfigManager の設定オプションを表します
+type Option func(*DefaultConfigManager)
+
+// WithValidator は validator を設定するオプションを返します
+func WithValidator(v Validator) Option {
+	return func(m *DefaultConfigManager) {
+		m.validator = v
+	}
+}
+
+// WithParser は parser を設定するオプションを返します
+func WithParser(p Parser) Option {
+	return func(m *DefaultConfigManager) {
+		m.parser = p
+	}
+}
+
+// WithFilePath は filePath を設定するオプションを返します
+func WithFilePath(path string) Option {
+	return func(m *DefaultConfigManager) {
+		m.filePath = path
+	}
 }
 
 // NewConfigManager は新しい ConfigManager インスタンスを作成します
-func NewConfigManager() ConfigManager {
+func NewConfigManager(opts ...Option) ConfigManager {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		// フォールバック: 環境変数から取得
@@ -23,10 +53,18 @@ func NewConfigManager() ConfigManager {
 
 	filePath := filepath.Join(homeDir, ".config", "fish", "conf.d", "fish-configurator.fish")
 
-	return &DefaultConfigManager{
-		filePath: filePath,
-		parser:   NewParser(),
+	m := &DefaultConfigManager{
+		filePath:  filePath,
+		parser:    NewParser(),
+		validator: nil,
 	}
+
+	// オプションを適用
+	for _, opt := range opts {
+		opt(m)
+	}
+
+	return m
 }
 
 // Load は Management_File を読み込んで Config を返します
@@ -114,6 +152,10 @@ func (m *DefaultConfigManager) AddEntry(entryType, name, definition string) erro
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// 既存の設定を保存（ロールバック用）
+	originalConfig := &Config{Entries: make([]Entry, len(config.Entries))}
+	copy(originalConfig.Entries, config.Entries)
+
 	// 新しいエントリを追加
 	config.Entries = append(config.Entries, Entry{
 		Type:       entryType,
@@ -124,6 +166,18 @@ func (m *DefaultConfigManager) AddEntry(entryType, name, definition string) erro
 	// 保存
 	if err := m.Save(config); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	// validator が設定されている場合はシンタックスチェックを実行
+	// TODO: ロールバック中にエラーが発生した場合、configが中途半端になるので、アトミックな置換を検討する
+	if m.validator != nil {
+		if err := m.validator.ValidateFile(m.filePath); err != nil {
+			// シンタックスエラーの場合は元の設定に戻す
+			if rollbackErr := m.Save(originalConfig); rollbackErr != nil {
+				return fmt.Errorf("syntax validation failed and rollback failed: %v (original error: %w)", rollbackErr, err)
+			}
+			return fmt.Errorf("syntax validation failed: %w", err)
+		}
 	}
 
 	return nil
