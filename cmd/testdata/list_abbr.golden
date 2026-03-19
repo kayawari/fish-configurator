@@ -1,0 +1,3 @@
+=== abbr 一覧 ===
+  abbr -a gco 'git checkout'
+  abbr -a gp 'git push'

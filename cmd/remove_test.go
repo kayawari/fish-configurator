@@ -299,3 +299,169 @@ func TestRemoveCommand_ConfirmError(t *testing.T) {
 		t.Errorf("expected confirm error, got: %s", errOut.String())
 	}
 }
+
+func TestRemoveCommand_PreservesOtherEntries(t *testing.T) {
+	// 要件 3.6: 他のエントリを保持する
+	var removedType, removedName string
+	removeCalled := 0
+	mgr := &mockConfigManager{
+		listEntriesFunc: func(entryType string) ([]config.Entry, error) {
+			return []config.Entry{
+				{Type: "alias", Name: "ll", Definition: "ls -la"},
+				{Type: "alias", Name: "gs", Definition: "git status"},
+				{Type: "alias", Name: "gd", Definition: "git diff"},
+			}, nil
+		},
+		removeEntryFunc: func(entryType, name string) error {
+			removeCalled++
+			removedType = entryType
+			removedName = name
+			return nil
+		},
+	}
+
+	choiceCallCount := 0
+	prompter := &mockPrompter{
+		choiceFunc: func(message string, choices []string) (string, error) {
+			choiceCallCount++
+			if choiceCallCount == 1 {
+				return "alias", nil
+			}
+			return "gs", nil
+		},
+		confirmFunc: func(message string) (bool, error) {
+			return true, nil
+		},
+	}
+
+	var out, errOut bytes.Buffer
+	cmd := NewRemoveCommand(mgr, prompter, &out, &errOut)
+
+	err := cmd.Execute(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// RemoveEntry が正確に1回だけ呼ばれたことを確認
+	if removeCalled != 1 {
+		t.Errorf("expected RemoveEntry to be called once, got %d", removeCalled)
+	}
+	// 正しいタイプと名前で呼ばれたことを確認
+	if removedType != "alias" {
+		t.Errorf("expected removed type 'alias', got %q", removedType)
+	}
+	if removedName != "gs" {
+		t.Errorf("expected removed name 'gs', got %q", removedName)
+	}
+	// 成功メッセージが表示されることを確認
+	if !bytes.Contains(out.Bytes(), []byte("alias 'gs' を削除しました。")) {
+		t.Errorf("expected success message, got: %s", out.String())
+	}
+	if errOut.String() != "" {
+		t.Errorf("unexpected stderr: %s", errOut.String())
+	}
+}
+
+func TestRemoveCommand_EntryNotFound(t *testing.T) {
+	// 要件 3.8: 削除対象がManagement_Fileに存在しない場合、警告メッセージを表示する
+	mgr := &mockConfigManager{
+		listEntriesFunc: func(entryType string) ([]config.Entry, error) {
+			return []config.Entry{
+				{Type: "alias", Name: "ll", Definition: "ls -la"},
+				{Type: "alias", Name: "gs", Definition: "git status"},
+			}, nil
+		},
+	}
+
+	choiceCallCount := 0
+	prompter := &mockPrompter{
+		choiceFunc: func(message string, choices []string) (string, error) {
+			choiceCallCount++
+			if choiceCallCount == 1 {
+				return "alias", nil
+			}
+			// 存在しない名前を返す
+			return "nonexistent", nil
+		},
+	}
+
+	var out, errOut bytes.Buffer
+	cmd := NewRemoveCommand(mgr, prompter, &out, &errOut)
+
+	err := cmd.Execute(nil)
+	if err == nil {
+		t.Fatal("expected error for non-existent entry, got nil")
+	}
+
+	if !bytes.Contains(errOut.Bytes(), []byte("Warning:")) {
+		t.Errorf("expected warning on stderr, got: %s", errOut.String())
+	}
+	if !bytes.Contains(errOut.Bytes(), []byte("nonexistent")) {
+		t.Errorf("expected entry name in warning, got: %s", errOut.String())
+	}
+}
+
+func TestRemoveCommand_SelectionPromptError(t *testing.T) {
+	// 2番目のPromptChoice（削除対象の選択）がエラーを返す場合
+	mgr := &mockConfigManager{
+		listEntriesFunc: func(entryType string) ([]config.Entry, error) {
+			return []config.Entry{
+				{Type: "alias", Name: "ll", Definition: "ls -la"},
+			}, nil
+		},
+	}
+
+	choiceCallCount := 0
+	prompter := &mockPrompter{
+		choiceFunc: func(message string, choices []string) (string, error) {
+			choiceCallCount++
+			if choiceCallCount == 1 {
+				return "alias", nil
+			}
+			// 2番目の呼び出しでエラーを返す
+			return "", fmt.Errorf("selection error")
+		},
+	}
+
+	var out, errOut bytes.Buffer
+	cmd := NewRemoveCommand(mgr, prompter, &out, &errOut)
+
+	err := cmd.Execute(nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	if !bytes.Contains(errOut.Bytes(), []byte("Error:")) {
+		t.Errorf("expected error on stderr, got: %s", errOut.String())
+	}
+	if !bytes.Contains(errOut.Bytes(), []byte("選択の取得に失敗しました")) {
+		t.Errorf("expected selection error message, got: %s", errOut.String())
+	}
+}
+
+func TestRemoveCommand_NoAbbrEntries(t *testing.T) {
+	// 要件 3.9: abbrタイプでエントリが存在しない場合
+	mgr := &mockConfigManager{
+		listEntriesFunc: func(entryType string) ([]config.Entry, error) {
+			return []config.Entry{}, nil
+		},
+	}
+
+	prompter := &mockPrompter{
+		choiceFunc: func(message string, choices []string) (string, error) {
+			return "abbr", nil
+		},
+	}
+
+	var out, errOut bytes.Buffer
+	cmd := NewRemoveCommand(mgr, prompter, &out, &errOut)
+
+	err := cmd.Execute(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !bytes.Contains(out.Bytes(), []byte("abbrは登録されていません。")) {
+		t.Errorf("expected info message for abbr, got: %s", out.String())
+	}
+}

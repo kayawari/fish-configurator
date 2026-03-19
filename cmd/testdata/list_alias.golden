@@ -1,0 +1,3 @@
+=== alias 一覧 ===
+  alias ll 'ls -la'
+  alias gs 'git status'

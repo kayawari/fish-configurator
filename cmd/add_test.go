@@ -376,3 +376,124 @@ func TestAddCommand_LoadError(t *testing.T) {
 func contains(s, substr string) bool {
 	return bytes.Contains([]byte(s), []byte(substr))
 }
+
+func TestAddCommand_WhitespaceOnlyName(t *testing.T) {
+	mgr := &mockConfigManager{}
+	prompter := &mockPrompter{
+		stringFunc: func(message string) (string, error) {
+			if contains(message, "名前") {
+				return "   ", nil
+			}
+			return "ls -la", nil
+		},
+	}
+
+	var out, errOut bytes.Buffer
+	cmd := NewAddCommand(mgr, prompter, &out, &errOut)
+
+	err := cmd.Execute([]string{"alias"})
+	if err == nil {
+		t.Fatal("expected error for whitespace-only name, got nil")
+	}
+
+	if !bytes.Contains(errOut.Bytes(), []byte("名前は空白のみで構成できません")) {
+		t.Errorf("expected whitespace name error, got: %s", errOut.String())
+	}
+}
+
+func TestAddCommand_WhitespaceOnlyDefinition(t *testing.T) {
+	mgr := &mockConfigManager{}
+	prompter := &mockPrompter{
+		stringFunc: func(message string) (string, error) {
+			if contains(message, "名前") {
+				return "ll", nil
+			}
+			return "   ", nil
+		},
+	}
+
+	var out, errOut bytes.Buffer
+	cmd := NewAddCommand(mgr, prompter, &out, &errOut)
+
+	err := cmd.Execute([]string{"alias"})
+	if err == nil {
+		t.Fatal("expected error for whitespace-only definition, got nil")
+	}
+
+	if !bytes.Contains(errOut.Bytes(), []byte("定義は空白のみで構成できません")) {
+		t.Errorf("expected whitespace definition error, got: %s", errOut.String())
+	}
+}
+
+func TestAddCommand_DuplicateConfirmError(t *testing.T) {
+	mgr := &mockConfigManager{
+		loadFunc: func() (*config.Config, error) {
+			return &config.Config{
+				Entries: []config.Entry{
+					{Type: "alias", Name: "ll", Definition: "ls -l"},
+				},
+			}, nil
+		},
+	}
+	prompter := &mockPrompter{
+		stringFunc: func(message string) (string, error) {
+			if contains(message, "名前") {
+				return "ll", nil
+			}
+			return "ls -la", nil
+		},
+		confirmFunc: func(message string) (bool, error) {
+			return false, fmt.Errorf("confirm prompt failed")
+		},
+	}
+
+	var out, errOut bytes.Buffer
+	cmd := NewAddCommand(mgr, prompter, &out, &errOut)
+
+	err := cmd.Execute([]string{"alias"})
+	if err == nil {
+		t.Fatal("expected error when confirm fails, got nil")
+	}
+
+	if !bytes.Contains(errOut.Bytes(), []byte("確認の取得に失敗しました")) {
+		t.Errorf("expected confirm error message, got: %s", errOut.String())
+	}
+}
+
+func TestAddCommand_DuplicateRemoveError(t *testing.T) {
+	mgr := &mockConfigManager{
+		loadFunc: func() (*config.Config, error) {
+			return &config.Config{
+				Entries: []config.Entry{
+					{Type: "alias", Name: "ll", Definition: "ls -l"},
+				},
+			}, nil
+		},
+		removeEntryFunc: func(entryType, name string) error {
+			return fmt.Errorf("remove failed: permission denied")
+		},
+	}
+	prompter := &mockPrompter{
+		stringFunc: func(message string) (string, error) {
+			if contains(message, "名前") {
+				return "ll", nil
+			}
+			return "ls -la", nil
+		},
+		confirmFunc: func(message string) (bool, error) {
+			return true, nil
+		},
+	}
+
+	var out, errOut bytes.Buffer
+	cmd := NewAddCommand(mgr, prompter, &out, &errOut)
+
+	err := cmd.Execute([]string{"alias"})
+	if err == nil {
+		t.Fatal("expected error when remove fails, got nil")
+	}
+
+	if !bytes.Contains(errOut.Bytes(), []byte("既存エントリの削除に失敗しました")) {
+		t.Errorf("expected remove error message, got: %s", errOut.String())
+	}
+}
