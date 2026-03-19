@@ -393,11 +393,11 @@ func TestRemoveCommand_EntryNotFound(t *testing.T) {
 		t.Fatal("expected error for non-existent entry, got nil")
 	}
 
-	if !bytes.Contains(errOut.Bytes(), []byte("Warning:")) {
-		t.Errorf("expected warning on stderr, got: %s", errOut.String())
+	if !bytes.Contains(errOut.Bytes(), []byte("Error: Validation:")) {
+		t.Errorf("expected validation error on stderr, got: %s", errOut.String())
 	}
 	if !bytes.Contains(errOut.Bytes(), []byte("nonexistent")) {
-		t.Errorf("expected entry name in warning, got: %s", errOut.String())
+		t.Errorf("expected entry name in error, got: %s", errOut.String())
 	}
 }
 

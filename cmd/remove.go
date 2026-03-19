@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"fish-configurator/internal/config"
+	apperrors "fish-configurator/internal/errors"
 	"fish-configurator/internal/ui"
 )
 
@@ -31,15 +32,17 @@ func (c *RemoveCommand) Execute(args []string) error {
 	// aliasとabbrのどちらを削除するか選択を求める（要件 3.1）
 	entryType, err := c.prompter.PromptChoice("削除する種類を選択してください", []string{"alias", "abbr"})
 	if err != nil {
-		fmt.Fprintf(c.errOut, "Error: 選択の取得に失敗しました: %v\n", err)
-		return err
+		appErr := apperrors.NewValidationError("選択の取得に失敗しました", err)
+		fmt.Fprintln(c.errOut, appErr.Error())
+		return appErr
 	}
 
 	// Management_File から該当する種類のエントリを取得（要件 3.2）
 	entries, err := c.configManager.ListEntries(entryType)
 	if err != nil {
-		fmt.Fprintf(c.errOut, "Error: File System: エントリ一覧の取得に失敗しました: %v\n", err)
-		return err
+		appErr := apperrors.NewFileSystemError("エントリ一覧の取得に失敗しました", err)
+		fmt.Fprintln(c.errOut, appErr.Error())
+		return appErr
 	}
 
 	// エントリが存在しない場合は情報メッセージを表示して終了（要件 3.9）
@@ -56,8 +59,9 @@ func (c *RemoveCommand) Execute(args []string) error {
 
 	selectedName, err := c.prompter.PromptChoice("削除する項目を選択してください", names)
 	if err != nil {
-		fmt.Fprintf(c.errOut, "Error: 選択の取得に失敗しました: %v\n", err)
-		return err
+		appErr := apperrors.NewValidationError("選択の取得に失敗しました", err)
+		fmt.Fprintln(c.errOut, appErr.Error())
+		return appErr
 	}
 
 	// 選択されたエントリが存在するか確認（要件 3.8）
@@ -69,15 +73,17 @@ func (c *RemoveCommand) Execute(args []string) error {
 		}
 	}
 	if !found {
-		fmt.Fprintf(c.errOut, "Warning: %s '%s' はManagement_Fileに存在しません。\n", entryType, selectedName)
-		return fmt.Errorf("%s '%s' not found", entryType, selectedName)
+		appErr := apperrors.NewValidationError(fmt.Sprintf("%s '%s' はManagement_Fileに存在しません", entryType, selectedName), nil)
+		fmt.Fprintln(c.errOut, appErr.Error())
+		return appErr
 	}
 
 	// 確認プロンプトを表示（要件 3.4）
 	confirmed, err := c.prompter.PromptConfirm(fmt.Sprintf("%s '%s' を削除しますか？", entryType, selectedName))
 	if err != nil {
-		fmt.Fprintf(c.errOut, "Error: 確認の取得に失敗しました: %v\n", err)
-		return err
+		appErr := apperrors.NewGeneralError("確認の取得に失敗しました", err)
+		fmt.Fprintln(c.errOut, appErr.Error())
+		return appErr
 	}
 
 	if !confirmed {
@@ -87,8 +93,9 @@ func (c *RemoveCommand) Execute(args []string) error {
 
 	// Management_File から該当エントリを削除（要件 3.5, 3.6）
 	if err := c.configManager.RemoveEntry(entryType, selectedName); err != nil {
-		fmt.Fprintf(c.errOut, "Error: File System: %s '%s' の削除に失敗しました: %v\n", entryType, selectedName, err)
-		return err
+		appErr := apperrors.NewFileSystemError(fmt.Sprintf("%s '%s' の削除に失敗しました", entryType, selectedName), err)
+		fmt.Fprintln(c.errOut, appErr.Error())
+		return appErr
 	}
 
 	// 成功メッセージを表示（要件 3.7）

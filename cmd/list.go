@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	apperrors "fish-configurator/internal/errors"
 	"fish-configurator/internal/fish"
 	"fish-configurator/internal/ui"
 )
@@ -32,8 +33,9 @@ func (c *ListCommand) Execute(args []string) error {
 	// aliasとabbrのどちらを表示するか選択を求める（要件 1.1）
 	choice, err := c.prompter.PromptChoice("表示する種類を選択してください", []string{"alias", "abbr"})
 	if err != nil {
-		fmt.Fprintf(c.errOut, "Error: 選択の取得に失敗しました: %v\n", err)
-		return err
+		appErr := apperrors.NewValidationError("選択の取得に失敗しました", err)
+		fmt.Fprintln(c.errOut, appErr.Error())
+		return appErr
 	}
 
 	// 選択に応じてfishコマンドを実行（要件 1.2, 1.3）
@@ -47,8 +49,9 @@ func (c *ListCommand) Execute(args []string) error {
 
 	output, err := c.executor.ExecuteCommand(fishCmd)
 	if err != nil {
-		fmt.Fprintf(c.errOut, "Error: Fish Shell: %sの一覧取得に失敗しました: %v\n", choice, err)
-		return err
+		appErr := apperrors.NewFishShellError(fmt.Sprintf("%sの一覧取得に失敗しました", choice), err)
+		fmt.Fprintln(c.errOut, appErr.Error())
+		return appErr
 	}
 
 	// 出力が空の場合は情報メッセージを表示（要件 1.6）
